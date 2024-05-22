@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obtener Ubicación Precisa</title>
+    <style>
+        body {
+            background-color: #121212; /* Negro mate */
+            color: #ffffff; /* Texto blanco */
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        .buttons-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px; /* Espacio entre filas de botones */
+        }
+        .button-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px; /* Espacio entre botones */
+        }
+        .button {
+            background-color: #1f1f1f; /* Negro más claro */
+            color: #ffffff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 25px;
+            transition: background-color 0.3s, transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 220px; /* Ancho fijo para todos los botones */
+            height: 50px; /* Alto fijo para todos los botones */
+        }
+        .button:hover {
+            background-color: #373737;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        .button:active {
+            background-color: #1f1f1f;
+            transform: translateY(0);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .button:disabled {
+            background-color: #555555;
+            cursor: not-allowed;
+        }
+        p {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        #ubicaciones-lista {
+            margin-top: 20px;
+            font-size: 18px;
+            white-space: pre-wrap; /* Preservar espacios y saltos de línea */
+        }
+        #busqueda-detenida {
+            color: white;
+            font-weight: bold;
+            margin-top: 20px;
+            display: none; /* Oculto por defecto */
+        }
+    </style>
+</head>
+<body>
+    <h1>Ubicación Geográfica</h1>
+    <div class="buttons-container">
+        <div class="button-row">
+            <button id="btn-iniciar" class="button" onclick="iniciarBusqueda()">Obtener Ubicación</button>
+            <button id="btn-detener" class="button" onclick="detenerBusqueda()">Detener Búsqueda</button>
+        </div>
+        <div class="button-row">
+            <button id="btn-reiniciar" class="button" onclick="reiniciarBusqueda()">Reiniciar Búsqueda</button>
+            <button id="btn-descargar" class="button" onclick="descargarMatriz()">Descargar Excel</button>
+        </div>
+    </div>
+    <p id="ubicacion"></p>
+    <div id="ubicaciones-lista"></div>
+    <p id="busqueda-detenida">Búsqueda detenida.</p>
+
+    <script>
+        let ubicaciones = [];
+        let intervalo;
+        let segundosTranscurridos = 0; // Contador de segundos desde el inicio
+
+        function iniciarBusqueda() {
+            if (navigator.geolocation) {
+                intervalo = setInterval(() => {
+                    segundosTranscurridos += 5; // Incremento en 5 segundos
+                    navigator.geolocation.getCurrentPosition(guardarUbicacion, mostrarError, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    });
+                }, 5000);
+                document.getElementById("busqueda-detenida").style.display = "none";
+                document.getElementById("btn-iniciar").disabled = true;
+            } else {
+                document.getElementById("ubicacion").innerHTML = "La geolocalización no es soportada por este navegador.";
+            }
+        }
+
+        function guardarUbicacion(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            ubicaciones.push({ tiempo: segundosTranscurridos, latitud: lat, longitud: lon });
+            document.getElementById("ubicacion").innerHTML = `<br>Total ubicaciones: ${ubicaciones.length}`;
+            mostrarUbicaciones();
+        }
+
+        function mostrarUbicaciones() {
+            const lista = document.getElementById("ubicaciones-lista");
+            lista.innerHTML = "Historial de ubicaciones (últimas 5):\n";
+            const ultimasUbicaciones = ubicaciones.slice(-5);
+            ultimasUbicaciones.forEach((ubicacion, index) => {
+                lista.innerHTML += `#${ubicaciones.length - ultimasUbicaciones.length + index + 1} - Tiempo: ${ubicacion.tiempo} segundos, Latitud: ${ubicacion.latitud}, Longitud: ${ubicacion.longitud}\n`;
+            });
+        }
+
+        function mostrarError(error) {
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    document.getElementById("ubicacion").innerHTML = "El usuario denegó la solicitud de geolocalización.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    document.getElementById("ubicacion").innerHTML = "La información de ubicación no está disponible.";
+                    break;
+                case error.TIMEOUT:
+                    document.getElementById("ubicacion").innerHTML = "La solicitud para obtener la ubicación ha expirado.";
+                    break;
+                case error.UNKNOWN_ERROR:
+                    document.getElementById("ubicacion").innerHTML = "Se ha producido un error desconocido.";
+                    break;
+            }
+        }
+
+        function detenerBusqueda() {
+            clearInterval(intervalo);
+            mostrarMensajeDetenido();
+            document.getElementById("btn-iniciar").disabled = false;
+        }
+
+        function reiniciarBusqueda() {
+            clearInterval(intervalo);
+            ubicaciones = [];
+            segundosTranscurridos = 0; // Reiniciar contador de segundos
+            document.getElementById("ubicacion").innerHTML = "";
+            document.getElementById("ubicaciones-lista").innerHTML = "";
+            mostrarMensajeDetenido();
+            document.getElementById("btn-iniciar").disabled = false;
+        }
+
+        function mostrarMensajeDetenido() {
+            const mensajeDetenido = document.getElementById("busqueda-detenida");
+            mensajeDetenido.style.display = "block";
+            setTimeout(() => {
+                mensajeDetenido.style.display = "none";
+                setTimeout(() => {
+                    mensajeDetenido.style.display = "block";
+                }, 500);
+            }, 0);
+        }
+
+        function descargarMatriz() {
+            if (ubicaciones.length === 0) {
+                alert("No hay información guardada para descargar.");
+                return;
+            }
+
+            // Construir el contenido CSV con columnas separadas
+            let csvContent = "data:text/csv;charset=utf-8," +
+                "Tiempo (segundos),Latitud,Longitud\n";
+
+            ubicaciones.forEach((ubicacion) => {
+                const row = `${ubicacion.tiempo},${ubicacion.latitud},${ubicacion.longitud}\n`;
+                csvContent += row;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "ubicaciones.csv");
+            document.body.appendChild(link); // Required for FF
+            link.click();
+        }
+    </script>
+</body>
+</html>
